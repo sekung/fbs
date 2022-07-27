@@ -22,6 +22,7 @@ type single struct {
 	back   chan backInfo
 	mu     sync.Mutex
 	timer  *time.Timer
+	in     bool
 }
 
 func (s *single) GetSingle() interface{} {
@@ -31,7 +32,11 @@ func (s *single) GetSingle() interface{} {
 func (s *single) ToBack(val interface{}) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.back <- backInfo{val, nil}
+	if !s.in {
+		s.back <- backInfo{val, nil}
+		s.timer.Stop()
+		s.in = true
+	}
 }
 
 func (s *single) FeedBack() <-chan backInfo {
@@ -41,7 +46,10 @@ func (s *single) FeedBack() <-chan backInfo {
 func (s *single) timeout() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.back <- backInfo{nil, errors.New("timeout")}
+	if !s.in {
+		s.back <- backInfo{nil, errors.New("timeout")}
+		s.in = true
+	}
 }
 
 func NewSingle(val interface{}, d time.Duration) Single {
